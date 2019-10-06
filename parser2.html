@@ -104,6 +104,9 @@
                 // Main starts here
                 const val = document.getElementById('inp').value;
                 
+                if( !checkIfItIsParsable(val) ) {
+                    return;
+                }
                 statements = findConstVals(val);
                 createBasicStatementsTable(statements);
 
@@ -317,6 +320,7 @@
                     symbol = val[i];
                     if (symbol == ')') {
                         if (parenthesesOpen == 1) {
+                            window.alert('2 sentences must be connected');
                             return false;
                         }
                         oparenth = 0;
@@ -341,6 +345,7 @@
                     }
 
                     if (concuUnSym > 1 || concuPrims > 1) {
+                        window.alert('Your format is not right');
                         return false;
                     }
                 }
