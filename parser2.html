@@ -104,11 +104,12 @@
                 // Main starts here
                 const val = document.getElementById('inp').value;
                 
+                statements = findConstVals(val);
+                createBasicStatementsTable(statements);
+
                 if( !checkIfItIsParsable(val) ) {
                     return;
                 }
-                statements = findConstVals(val);
-                createBasicStatementsTable(statements);
 
                 let stack = [];
 
@@ -345,7 +346,7 @@
                     }
 
                     if (concuUnSym > 1 || concuPrims > 1) {
-                        window.alert('Your format is not right');
+                        window.alert('You have connected basic statemets, or primary signs');
                         return false;
                     }
                 }
