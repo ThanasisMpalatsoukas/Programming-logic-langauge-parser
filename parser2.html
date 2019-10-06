@@ -1,0 +1,499 @@
+<html>
+    <head>
+        <title>LOGICAL PARSER</title>
+    </head>
+    <style>
+        table td {
+            padding: 10px;
+            border-collapse: collapse;
+            text-align:center;
+        }
+
+        table tr:nth-child(even) {
+            background-color: grey;
+        }
+    </style>
+    <body>
+        <h1>Logical parser</h1>
+        <input id="inp" type="text" />
+
+        <button id="submit">
+            Submit
+        </button>
+
+        <div style="float:left;width: 50%;">
+            <table>
+                <tbody id="tbody">
+        
+                </tbody>
+            </table>
+        </div>
+        <div style="float:left:width:50%;">
+            <p>
+                <table>
+                    <thead>
+                        <tr>
+                            <th colspan="2">
+                                Currently only works for the following symbols:
+                            </th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                (Union)
+                            </td>
+                            <td>
+                                v
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                (Section)
+                            </td>
+                            <td>
+                                ^
+                            </td>
+                        </tr>
+                        <tr>
+                            <td>
+                                (Not)
+                            </td>
+                            <td>
+                                ~
+                            </td>
+                            </tr>
+                        <tr>
+                            <td>EXAMPLE:</td>
+                            <td>((a^~b)v~c)v(a^~d)</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </p>
+        </div>
+        <script>
+            const inp = document.getElementById('submit');
+
+            const primarySigns = [
+                '~','=','v','^'
+            ]
+
+            function Tree(the_root,depth,left,right,lr=[],rr=[],parent='',side='') {
+                this.parent = parent;
+                this.root = the_root;
+                this.depth = depth;
+                this.left = left;
+                this.right = right;
+                this.lr = lr;
+                this.rr = rr;
+                this.side = side;
+            }
+
+            let statements = [];
+            let truthTables = {};
+
+            inp.addEventListener('click',function(){
+
+                statements = [];
+                truthTables = {};
+
+                // Clean table
+                const tbody = document.getElementById('tbody');
+                tbody.innerHTML = '';
+
+                // Main starts here
+                const val = document.getElementById('inp').value;
+                
+                statements = findConstVals(val);
+                createBasicStatementsTable(statements);
+
+                let stack = [];
+
+                count = 0;
+
+                if (hasParenth(val)) {
+                    stack.push(findTreeDetailsForBraces(val));
+                    while (stack.length > 0) {
+                        count++;
+                        let treeStruct = stack[stack.length-1]; 
+                        if (hasParenth(treeStruct.left) && treeStruct.lr.length == 0) {
+                            const newLeftSide = findTreeDetailsForBraces(treeStruct.left,'left');
+                            stack.push(newLeftSide);
+                        }
+                        else if (!hasParenth(treeStruct.left) && treeStruct.lr.length == 0) {
+                            let analysis = findTreeDetailsForSimple(treeStruct.left);
+                            let truthTableRes = [];
+
+                            if (analysis.root == '^') {
+                                truthTableRes = findSectionResult(analysis.left,analysis.right);
+                            }
+                            else if (analysis.root == 'v') {
+                                truthTableRes = findVResult(analysis.left,analysis.right);
+                            }
+                            truthTables[treeStruct.left] = truthTableRes;
+                            treeStruct.lr = truthTableRes;
+                        }
+                        else if (hasParenth(treeStruct.right) && treeStruct.rr.legth == 0) {
+                            const newRightSide = findTreeDetailsForBraces(treeStruct.right,'right');
+                            stack.push(newRightSide);
+                        }
+                        else if (!hasParenth(treeStruct.right) && treeStruct.rr.length == 0) {
+                            if (truthTables.hasOwnProperty(treeStruct.right)) {
+                                treeStruct.rr = truthTables[treeStruct.right];
+                            }
+                            else if (treeStruct.right[0] == '~') {
+                                handleNot(treeStruct.right);
+                                treeStruct.rr = truthTables[treeStruct.right];
+                            }
+                            else {
+                                let analysis = findTreeDetailsForSimple(treeStruct.right);
+                                let truthTableRes = [];
+
+                                if (analysis.root == '^') {
+                                    truthTableRes = findSectionResult(analysis.left,analysis.right);
+                                }
+                                else if (analysis.root == 'v') {
+                                    truthTableRes = findVResult(analysis.left,analysis.right);
+                                }
+                                truthTables[treeStruct.right] = truthTableRes;
+                                treeStruct.rr = truthTableRes;
+                            }
+                        }
+                        else {
+
+                            let truthTableRes;
+                            if (treeStruct.root == '^') {
+                                truthTableRes = findSectionResult(treeStruct.left,treeStruct.right);
+                            }
+                            else if (treeStruct.root == 'v') {
+                                truthTableRes = findVResult(treeStruct.left,treeStruct.right);
+                            }
+                            console.log('last else');
+                            console.log(truthTableRes);
+                            truthTables[treeStruct.parent] = truthTableRes;
+                            let side = treeStruct.side;
+                            stack.pop();
+
+                            if (stack.length > 0) {
+                                if (side == 'left') {
+                                    stack[stack.length-1].lr = truthTableRes;
+                                }
+                                else {
+                                    stack[stack.length-1].rr = truthTableRes;
+                                }
+                            }
+                        }
+                        console.log(stack);
+                        if (count > 20) {
+                            return;
+                        }
+                    }
+                }
+                else {
+                    let analysis = findTreeDetailsForSimple(val);
+                    let truthTableRes = [];
+
+                    if (analysis.root == '^') {
+                        truthTableRes = findSectionResult(analysis.left,analysis.right);
+                    }
+                    else if (analysis.root == 'v') {
+                        truthTableRes = findVResult(analysis.left,analysis.right);
+                    }
+                    truthTables[val] = truthTableRes;                    
+                }
+
+                createTheRestOfTheItems();
+            });
+
+            function createTheRestOfTheItems() {
+                const tbody = document.getElementById('tbody');
+                tbody.innerHTML = '';
+                let tr = tbody.insertRow();
+
+                let numbersAddedForEach = [];
+
+                console.log('working');
+                console.log(truthTables);
+
+                const key = Object.keys(truthTables);
+
+                key.map( stat => {
+                    cell = tr.insertCell();
+                    let text = document.createTextNode(stat);
+                    cell.appendChild(text);
+                });
+
+                for (let i=0;i<truthTables[key[0]].length;i++) {
+                    let tr = tbody.insertRow();
+
+                    for (let j=0;j<key.length;j++) {
+                        cell = tr.insertCell();
+                        let text = document.createTextNode(truthTables[key[j]][i]);
+                        cell.appendChild(text);
+                    }
+                }
+            }
+
+            function findTreeDetailsForBraces(val,side='') {
+                let leftSide = '';
+                let rightSide = '';
+                let rootPos = '';
+                let foundOpeningBrace = 0;
+                let posOfFirstBrace = 0;
+                let posOfLastBrace = 0;
+                let foundClosingBrace = 0;
+                for (let i=0;i<val.length;i++) {
+                    if ( val[i] == '('  && rootPos == '') {
+                        if (foundOpeningBrace == 0) {
+                            posOfFirstBrace = i;
+                        }
+                        foundOpeningBrace++;
+                    }
+                    if (val[i] == ')' && rootPos == '') {
+                        foundOpeningBrace--;
+                        if (foundOpeningBrace == 0) {
+                            posOfLastBrace = i;
+                        }
+                    }
+
+                    if (foundOpeningBrace > 0) {
+                        leftSide+=val[i];
+                    }
+                    else {
+                        if (rootPos!='') {
+                            rightSide+=val[i];
+                        }
+                        if (val[i]!='^' && val[i]!='v' && rootPos=='') {
+                            leftSide+=val[i];
+                        }
+                        else if (rootPos==''){
+                            rootPos=i;
+                        }
+                    }
+                }
+
+                if (leftSide[0] == '(') {
+                    leftSide = leftSide.slice(1,-1);
+                }
+
+                if (rightSide[0] == '(') {
+                    rightSide = rightSide.slice(1,-1);
+                }
+
+                return new Tree(val[rootPos],0,leftSide,rightSide,[],[],val,side);
+            }
+
+            function findTreeDetailsForSimple(val) {
+                let leftSide = '';
+                let rightSide = '';
+                let rootPos = '';
+                for (let i=0;i<val.length;i++) {
+                    if (val[i]!='^' && val[i]!='v' && rootPos=='') {
+                        leftSide+=val[i];
+                    }
+                    else if (rootPos==''){
+                        rootPos=i;
+                    }
+
+                    if (rootPos!='' && val[i]!='^' && val[i]!='v') {
+                        rightSide+=val[i];
+                    }
+                }
+
+                return new Tree(val[rootPos],0,leftSide,rightSide);
+
+            }
+
+            function hasParenth(val) {
+                if (val.includes('(')) {
+                    return true;
+                }
+                else {
+                    return false;
+                }
+            }
+
+            function checkIfItIsParsable(val) {
+
+                concuUnSym = 0;
+                concuPrims = 0;
+                oparenth = 0;
+                cparenth = 0;
+
+                parenthesesOpen = 0;
+
+                for (let i=0;i<val.length;i++) {
+                    symbol = val[i];
+                    if (symbol == ')') {
+                        if (parenthesesOpen == 1) {
+                            return false;
+                        }
+                        oparenth = 0;
+                        concuUnSym = 0;
+                    }
+                    if (symbol == '(') {
+                        oparenth = 1;
+                        concuUnSym = 0;
+                        parenthesesOpen = 1;
+                    }
+                    else {
+                        parenthesesOpen = 0;
+                    }
+                    if (primarySigns.includes(symbol) && symbol!='~') {
+                        concuUnSym++;
+                    }
+                    if (statements.includes(symbol)) {
+                        concuPrims++;
+                    }
+                    else {
+                        concuPrims = 0;
+                    }
+
+                    if (concuUnSym > 1 || concuPrims > 1) {
+                        return false;
+                    }
+                }
+
+                return true;
+            }
+
+            function findNotResult(statement) {
+                const amount = statement.length - 2;
+                if (amount%2 == 0) {
+                    return 1;
+                }
+                else {
+                    return 0;
+                }
+            }
+            
+            function findVResult(first, second) {
+                result = [];
+
+                handleNot(first);
+                handleNot(second);
+
+                for (let i=0;i<truthTables[first].length;i++) {
+                    if (truthTables[first][i] == 0 && truthTables[second][i] == 0) {
+                        result.push(0);
+                    }
+                    else {
+                        result.push(1);
+                    }
+                }
+
+                return result;
+            }
+
+            function handleNot(item) {
+                
+                if (item[0] == '~') {
+                    let willBeReverted = findNotResult(item);
+
+                    if (willBeReverted == 1) {
+                        revertTable(item);
+                    }
+                    else {
+                        truthTables[item] = truthTables[stripOfNot(item)];
+                    }
+                }
+
+            }
+
+            function revertTable(first) {
+                firstStripped = stripOfNot(first);
+
+                truthTables[first] = [];
+
+                for (let i=0;i<truthTables[firstStripped].length;i++) {
+                    if (truthTables[firstStripped][i] == 0) {
+                        truthTables[first][i] = 1;
+                    }
+                    else {
+                        truthTables[first][i] = 0;
+                    }
+                }
+
+            }
+
+            function stripOfNot(first) {
+                let count = 0;
+                for (let i=0;i<first.length;i++) {
+                    if (first[i] == '~') {
+                        count++;
+                    }
+                }
+                first = first.slice(count);
+                return first;
+            }
+
+            function findSectionResult(first, second) {
+                result = [];
+
+                handleNot(first);
+                handleNot(second);
+
+                for (let i=0;i<truthTables[first].length;i++) {
+                    if (truthTables[first][i] == 1 && truthTables[second][i] == 1) {
+                        result.push(1);
+                    }
+                    else {
+                        result.push(0);
+                    }
+                }
+
+                return result;
+            }
+
+
+            function findConstVals(str) {
+                statements = [];
+                for (let i=0;i<str.length;i++) {
+                    if (!primarySigns.includes(str[i]) && str[i]!='(' && str[i]!=')' && !statements.includes(str[i])) {
+                        statements.push(str[i]);
+                    }
+                }
+                return statements;
+            }
+
+            function createBasicStatementsTable(statements) {
+                const tbody = document.getElementById('tbody');
+                let tr = tbody.insertRow();
+
+                let numbersAddedForEach = [];
+
+                statements.map( statement => {
+                    cell = tr.insertCell();
+                    let text = document.createTextNode(statement);
+                    cell.appendChild(text);
+                    truthTables[statement] = [];
+                });
+
+                for (let i=0;i<Math.pow(2,statements.length);i++) {
+                    let tr = tbody.insertRow();
+
+                    // Initiate values
+                    if (i==0) {
+                        for (let j=0;j<statements.length;j++) {
+                            numbersAddedForEach[j] = 0;
+                        }
+                    }
+                    for (let j=0;j<statements.length;j++) {
+                        if (i%Math.pow(2,j)==0) {
+                            if (numbersAddedForEach[j] == 0) {
+                                numbersAddedForEach[j] = 1;
+                            }
+                            else {
+                                numbersAddedForEach[j] = 0;
+                            }
+                        }
+                        truthTables[statements[j]].push(numbersAddedForEach[j]);
+                        cell = tr.insertCell();
+                        let text = document.createTextNode(numbersAddedForEach[j]);
+                        cell.appendChild(text);
+                    }
+                }
+            }
+        </script>
+    </body>
+</html>
