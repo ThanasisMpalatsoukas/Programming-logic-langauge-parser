@@ -168,8 +168,6 @@
                             else if (treeStruct.root == 'v') {
                                 truthTableRes = findVResult(treeStruct.left,treeStruct.right);
                             }
-                            console.log('last else');
-                            console.log(truthTableRes);
                             truthTables[treeStruct.parent] = truthTableRes;
                             let side = treeStruct.side;
                             stack.pop();
@@ -182,10 +180,6 @@
                                     stack[stack.length-1].rr = truthTableRes;
                                 }
                             }
-                        }
-                        console.log(stack);
-                        if (count > 20) {
-                            return;
                         }
                     }
                 }
@@ -211,9 +205,6 @@
                 let tr = tbody.insertRow();
 
                 let numbersAddedForEach = [];
-
-                console.log('working');
-                console.log(truthTables);
 
                 const key = Object.keys(truthTables);
 
